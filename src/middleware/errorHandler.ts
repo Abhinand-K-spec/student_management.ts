@@ -1,17 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
+import { HttpStatus, ErrorMessage } from '../utils/enums';
+
+interface MongoError extends Error {
+  code?: number;
+}
 
 export const errorHandler = (
-  err: Error,
+  err: MongoError,
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
   console.error(`Error: ${err.message}`);
-  console.error(err.stack);
 
-  // Handle validation errors from Mongoose
   if (err.name === 'ValidationError') {
-    res.status(400).render('error', {
+    res.status(HttpStatus.BAD_REQUEST).render('error', {
       title: 'Validation Error',
       message: err.message,
       error: err
@@ -19,20 +22,20 @@ export const errorHandler = (
     return;
   }
 
-  // Handle duplicate key errors from MongoDB
-  if ((err as any).code === 11000) {
-    res.status(400).render('error', {
+  // Handle DB unique constraint violations
+  if (err.code === 11000) {
+    res.status(HttpStatus.BAD_REQUEST).render('error', {
       title: 'Duplicate Error',
-      message: 'A record with that data already exists',
+      message: ErrorMessage.RECORD_ALREADY_EXISTS,
       error: err
     });
     return;
   }
 
-  // Generic error response
-  res.status(500).render('error', {
+  res.status(HttpStatus.INTERNAL_SERVER_ERROR).render('error', {
     title: 'Server Error',
-    message: 'Something went wrong',
+    message: ErrorMessage.SOMETHING_WENT_WRONG,
     error: process.env.NODE_ENV === 'development' ? err : {}
   });
 };
+
